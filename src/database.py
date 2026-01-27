@@ -1,49 +1,52 @@
 from pathlib import Path
-import sql3
+import sqlite3 as sql3
 import hashlib
+import disk_mgr as mgr
 
 cwd = str(Path.cwd())
 
-class initdb(self, url):
-	def get_job_id(url):
+class initdb:
+	def get_job_id(self,url):
 		unique_id = hashlib.sha256(url.encode('utf-8')).hexdigest()
-		storage = cwd + "/" + uniquea_id
-		return unique_id, storage
+		return unique_id
 	
-	def create_db(url):
-		conn = sql3.connet(f"{cwd}/db/jobs.db")
+	def __init__(self):
+		mgr.get_db()
+		conn = sql3.connect(f"{cwd}/db/jobs.db")
 		cursor = conn.cursor()
 		cursor.execute('''
-			CREATE TABLE IF NOT EXIST jobs_table(
-				id INTEGER,
+			CREATE TABLE IF NOT EXISTS jobs_table(                
+				id TEXT PRIMARY KEY,
 				video_url TEXT,
-				statas TEXT,
-				folder_path TEXT DEFAULT,
-				created_at DATETIME DEFAULT CURRENT_TIME
+				status TEXT,
+				folder_path TEXT,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 			)
 		
 		''')
-		cursor.commit()
+		conn.commit()
 		cursor.close()
+		conn.close()
 		
-	def create_job(url):
-		job_id, job_folder = get_job_id(url)
-		job_path = Path(job_folder)
-		job_path.mkdir( parents=True, exist_ok=True)
-		
+	def create_job(self,url):
+		job_id = self.get_job_id(url)
+		if mgr.is_workspace(job_id):
+			return job_id
+		job_folder = mgr.get_workspace(job_id)
 		conn = sql3.connect(f"{cwd}/db/jobs.db")
-		cursor = conn.connect()
+		cursor = conn.cursor()
 		
 		sql_insert = """
 			INSERT INTO jobs_table (id, video_url, status, folder_path) VALUES (?,?,?,?)
 		"""
 		
-		cursor,excute(sql_insert, (job_id, url, "PENDING", job_path))
+		cursor.execute(sql_insert, (job_id, url, "PENDING", job_folder))
 		
-		cursor.commit()
+		conn.commit()
 		cursor.close()
 		conn.close()
-	def update_job(url, status):
-		conn sql3.connect(f"{cwd}/db/jobs.db")
+		return job_id
+	def update_job(self,job_id, status):
+		conn + sql3.connect(f"{cwd}/db/jobs.db")
 		cursor = conn.cursor()
-		cursor.excute("UPDATE status = ? WHERE id = ?", (job_id, status))
+		cursor.execute("UPDATE status = ? WHERE id = ?", (job_id, status))
