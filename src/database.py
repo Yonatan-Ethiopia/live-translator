@@ -46,7 +46,41 @@ class initdb:
 		cursor.close()
 		conn.close()
 		return job_id
-	def update_job(self,job_id, status):
-		conn + sql3.connect(f"{cwd}/db/jobs.db")
+	def update_status(self,job_id, status):
+		print(f"Status: {status}")
+		conn = sql3.connect(f"{cwd}/db/jobs.db")
 		cursor = conn.cursor()
-		cursor.execute("UPDATE status = ? WHERE id = ?", (job_id, status))
+		cursor.execute("UPDATE jobs_table SET status = ? WHERE id = ?", (status, job_id))
+		conn.commit()
+		cursor.close()
+		conn.close()
+		print("Updated")
+
+
+def claim_next_job(db_path):
+    conn = sql3.connect(f"{cwd}/db/jobs.db")
+    # This allows us to access columns by name like job['id']
+    conn.row_factory = sql3.Row 
+    cursor = conn.cursor()
+
+    # The Atomic Claim
+    query = """
+    UPDATE jobs_table 
+    SET status = 'PROCESSING'
+    WHERE id = (
+        SELECT id FROM jobs_table WHERE status = 'PENDING' 
+        ORDER BY created_at ASC LIMIT 1
+    )
+    RETURNING id, video_url, folder_path;
+    """
+    
+    try:
+        cursor.execute(query)
+        job = cursor.fetchone()
+        conn.commit()
+        return job # Returns a Row object or None
+    except Exception as e:
+        print(f"Claim failed: {e}")
+        return None
+    finally:
+        conn.close()
