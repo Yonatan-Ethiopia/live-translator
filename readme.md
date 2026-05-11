@@ -8,11 +8,10 @@
 * **Generate subtitles**  
 * **Generate dubs or translated voice overs(work in progress)**  
 * **Works for both local or online videos**  
-* **Support for any link that works with yt-dlp**  
+* **Support for any link that works with yt-dlp**
 
 ---
 ## Live usage  
----
 [Youtube walk through](https://youtu.be/pMPZ-fcGAN8)  
 ---
 
@@ -28,4 +27,4 @@
 
 ---
 
-**This project is a work in progress** 
+**This project is a work in progress, contributions welcome** 
