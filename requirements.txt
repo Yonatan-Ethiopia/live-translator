@@ -1,0 +1,10 @@
+hashlib
+yt_dlp
+ffmpeg
+numpy
+soundfile
+torch
+flask
+flask-cors
+faster-whisper
+silero-vad
