@@ -28,7 +28,6 @@
 ---
 
 ## Workflow
----
 
 ![Workflow diagram](show/diagram.png)  
 
