@@ -34,8 +34,7 @@ OVERLAP_BYTES   = int(OVERLAP_SECONDS * SAMPLE_RATE * BYTES_PER_SAMPLE * CHANNEL
 WINDOW_SIZE_SAMPLE = 512
 
 running_event = threading.Event()
-data_available = threading.Event()  # New event to signal when data is available
-
+data_available = threading.Event()  
 db = database.initdb()
 cwd = str(Path.cwd())
 
@@ -55,7 +54,6 @@ def full_pipeline(job_id, url, job_folder):
     sub_index = 0
     chunk_index = 0
     
-    # Create necessary directories
     os.makedirs(f"{cwd}/storage/{job_id}/subtitles", exist_ok=True)
     os.makedirs(f"{cwd}/storage/{job_id}/audio", exist_ok=True)
     
@@ -93,19 +91,6 @@ def full_pipeline(job_id, url, job_folder):
             print(f"Error in realTranslate: {e}")
             return text
             
-        # if i == 1:
-            # i = 2
-            # return s1
-        # return s2
-            
-        # subtitle = {
-            # "start": float(start),
-            # "end": float(end),
-            # "text": text
-        # }
-        # with open(f"{cwd}/storage/{job_id}/subtitles/{num}.json", "w", encoding="utf-8") as f:
-               # json.dump(subtitle, f, ensure_ascii=False, indent=2)   
-        # database.update_chunk_table(job_id, "subtitle", num, f"{cwd}/storage/{job_id}/subtitles/{num}.json")
 
     def get_stream_url(url):
         yt_output = {
@@ -124,60 +109,52 @@ def full_pipeline(job_id, url, job_folder):
         running_event.set()
         db.update_status(job_id, "ffmpeg:extracting stream bytes")
         
-        audio_buffer = b''           # rolling byte buffer from ffmpeg
-        speech_accumulator = []      # list of np.float32 arrays for current speech
+        audio_buffer = b''           
+        speech_accumulator = []      
         speech_start = None
         chunks_processed = 0
-        current_time = 0.0           # absolute time in seconds
+        current_time = 0.0           
         
         print("Starting VAD-based audio processing...")
     
         while True:
             try:
-                raw_bytes = process.stdout.read(1024 * 16)   # Read decent size for efficiency
+                raw_bytes = process.stdout.read(1024 * 16)  
                 if not raw_bytes:
-                    if process.poll() is not None:           # FFmpeg has finished
+                    if process.poll() is not None:           
                         break
                     continue
     
                 audio_buffer += raw_bytes
-    
-                # Process as many full frames as possible
                 while len(audio_buffer) >= WINDOW_SIZE_SAMPLE * 2:
                     # Extract one frame
                     frame_bytes = audio_buffer[:WINDOW_SIZE_SAMPLE * 2]
                     audio_buffer = audio_buffer[WINDOW_SIZE_SAMPLE * 2:]
     
-                    # Convert to normalized float32
                     frame_np = np.frombuffer(frame_bytes, dtype=np.int16).astype(np.float32) / 32768.0
                     frame_tensor = torch.from_numpy(frame_np)
-    
-                    # Feed to VAD
+
                     speech_dict = vad_iterator(frame_tensor, return_seconds=True)
     
-                    # Update absolute time
                     frame_duration = WINDOW_SIZE_SAMPLE / SAMPLE_RATE
                     current_time += frame_duration
-    
-                    # === VAD Logic ===
+
                     if speech_dict:
                         if 'start' in speech_dict:
                             speech_start = speech_dict['start']
-                            speech_accumulator = [frame_np]          # Start new speech
+                            speech_accumulator = [frame_np]          
                             print(f"Speech START detected at {speech_start:.2f}s")
     
                         if 'end' in speech_dict:
                             speech_end = speech_dict['end']
                             speech_accumulator.append(frame_np)      # Add current frame
     
-                            # Create full speech segment
                             if len(speech_accumulator) > 0:
                                 full_speech_np = np.concatenate(speech_accumulator)
     
                                 print(f"Speech END at {speech_end:.2f}s | Duration: {speech_end - speech_start:.2f}s "
                                       f"| Samples: {len(full_speech_np)}")
     
-                                # Put complete speech chunk into queue
                                 q.put({
                                     "audio": full_speech_np,
                                     "start": speech_start,
@@ -186,14 +163,11 @@ def full_pipeline(job_id, url, job_folder):
                                 })
                                 chunks_processed += 1
     
-                            # Reset for next speech segment
                             speech_accumulator = []
                             speech_start = None
     
                     else:
-                        # No event from VAD
                         if speech_start is not None:
-                            # We are inside speech → keep accumulating
                             speech_accumulator.append(frame_np)
     
             except KeyboardInterrupt:
@@ -203,11 +177,9 @@ def full_pipeline(job_id, url, job_folder):
                 print(f"Error in ffmpeg thread: {e}")
                 break
     
-        # === End of stream handling ===
         running_event.clear()
         db.update_status(job_id, "ffmpeg:finished reading stream bytes")
         
-        # If we were in the middle of speech when stream ended, force finish it
         if speech_start is not None and len(speech_accumulator) > 0:
             speech_end = current_time
             full_speech_np = np.concatenate(speech_accumulator)
@@ -235,7 +207,7 @@ def full_pipeline(job_id, url, job_folder):
         print("Loading Whisper model...")
     
         model = WhisperModel(
-            "tiny",                    # you can change to "small" later if needed
+            "tiny",                    
             device="cpu",
             compute_type="int8",
             local_files_only=True
@@ -264,17 +236,16 @@ def full_pipeline(job_id, url, job_folder):
                     continue
     
                 np_array = data["audio"]
-                vad_start = data["start"]      # Absolute time from VAD
+                vad_start = data["start"]      
                 vad_end = data["end"]
     
                 print(f"\nProcessing chunk {chunks_processed} | VAD [{vad_start:.2f}s → {vad_end:.2f}s]")
     
-                # Transcribe with faster-whisper
                 segments, info = model.transcribe(
                     np_array,
                     language="en",
                     beam_size=5,
-                    word_timestamps=True          # Enable this for better subtitles
+                    word_timestamps=True          
                 )
     
                 full_text = ""
@@ -283,13 +254,11 @@ def full_pipeline(job_id, url, job_folder):
                     segment_text = segment.text.strip()
                     full_text += segment_text + " "
     
-                    # Shift Whisper's relative timestamps to absolute using VAD start
                     seg_start_abs = vad_start + segment.start
                     seg_end_abs   = vad_start + segment.end
     
                     print(f"  [{seg_start_abs:.2f}s → {seg_end_abs:.2f}s] {segment_text}")
     
-                    # Optional: log word-level timestamps (if you want more precision later)
                     if hasattr(segment, 'words') and segment.words:
                         print("    Words:")
                         for word in segment.words:
@@ -298,12 +267,10 @@ def full_pipeline(job_id, url, job_folder):
                             print(f"      [{word_start_abs:.2f}s → {word_end_abs:.2f}s] {word.word}")
     
                 full_text = full_text.strip()
-    
-                # Write to rawtext file
+
                 with open(f"{job_folder}/rawtext.txt", "a", encoding="utf-8") as f:
                     f.write(f"[{vad_start:.2f}s → {vad_end:.2f}s] {full_text}\n")
     
-                # Send to translation queue (using VAD segment times for ducking)
                 ind = sub_index
                 translated_text = realTranslate(
                     "https://google-translat-api.proshega1.workers.dev/translate",
@@ -340,7 +307,7 @@ def full_pipeline(job_id, url, job_folder):
     
         while True:
             try:
-                data = q_text.get(timeout=5.0)   # Increase timeout significantly
+                data = q_text.get(timeout=5.0)   
                 if data is STOP_SIGNAL:
                     print("TTS received stop signal")
                     break
@@ -352,10 +319,8 @@ def full_pipeline(job_id, url, job_folder):
                 chunks_processed += 1
     
             except queue.Empty:
-                # Only exit on empty if ffmpeg is done AND asr has already sent STOP
                 if not running_event.is_set():
                     print("TTS: ffmpeg finished, waiting a bit longer for remaining ASR items...")
-                    # Optional: sleep a little or check q_text.empty() again after delay
                     time.sleep(2.0)
                     if q_text.empty():
                         print("TTS: still empty after extra wait → assuming done")
@@ -393,22 +358,18 @@ def full_pipeline(job_id, url, job_folder):
     q = queue.Queue()
     q_text = queue.Queue()
 
-    # Clear the data_available event before starting
     data_available.clear()
     
     thread_ffmpeg = threading.Thread(target=ffmpeg_thread, args=(process, q))
     thread_asr = threading.Thread(target=asr_thread, args=(q, q_text))
     #thread_tts = threading.Thread(target=tts_thread, args=(q_text,))
 
-    # Start all threads
     print("Starting threads...")
     thread_ffmpeg.start()
-    # Give ffmpeg a moment to start producing data
     time.sleep(2)
     thread_asr.start()
     #thread_tts.start()
 
-    # Wait for all threads to complete
     thread_ffmpeg.join()
     thread_asr.join()
     #thread_tts.join()
