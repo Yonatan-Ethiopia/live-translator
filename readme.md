@@ -33,4 +33,4 @@
 
 ---
 
-**This project is a work in progress, contributions welcome** 
+**This project is a work in progress, contributions are welcome** 
