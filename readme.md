@@ -12,7 +12,7 @@
 
 ---
 ## Live usage  
-[Youtube walk through](https://youtu.be/pMPZ-fcGAN8)  
+![Youtube walk through](https://youtu.be/pMPZ-fcGAN8)  
 ---
 
 ## Tech stack
@@ -32,6 +32,5 @@
 ![Workflow diagram](show/diagram.png)  
 
 ---
-**This project is a work in progress** 
-=======
+
 **This project is a work in progress, contributions welcome** 
