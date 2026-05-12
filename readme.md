@@ -28,4 +28,10 @@
 
 ---
 
+## Workflow
+---
+
+[Workflow diagram](show/diagram.png)  
+
+---
 **This project is a work in progress** 
