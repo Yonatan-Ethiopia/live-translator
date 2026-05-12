@@ -12,7 +12,7 @@
 
 ---
 ## Live usage  
-![Youtube walk through](https://youtu.be/pMPZ-fcGAN8)  
+[Youtube walk through](https://youtu.be/pMPZ-fcGAN8)  
 ---
 
 ## Tech stack
