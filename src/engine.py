@@ -362,17 +362,17 @@ def full_pipeline(job_id, url, job_folder):
     
     thread_ffmpeg = threading.Thread(target=ffmpeg_thread, args=(process, q))
     thread_asr = threading.Thread(target=asr_thread, args=(q, q_text))
-    #thread_tts = threading.Thread(target=tts_thread, args=(q_text,))
+    thread_tts = threading.Thread(target=tts_thread, args=(q_text,))
 
     print("Starting threads...")
     thread_ffmpeg.start()
     time.sleep(2)
     thread_asr.start()
-    #thread_tts.start()
+    thread_tts.start()
 
     thread_ffmpeg.join()
     thread_asr.join()
-    #thread_tts.join()
+    thread_tts.join()
     
     db.update_status(job_id, "Pipeline completed successfully")
     print("All threads completed!")
