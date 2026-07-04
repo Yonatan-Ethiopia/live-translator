@@ -2,10 +2,11 @@ import requests
 import json
 import base64
 import os
-import database 
+import database
+from dotenv import load_dotenv
 
 url = "https://api.addisassistant.com/api/v1/audio"
-api = ""
+api = os.getenv("addis_api")
 
 Header = {
 	"Content-Type": "application/json",
@@ -50,7 +51,7 @@ def hasab(text, start, end, job_id, number):
 					print(f"✓ Successfully decoded using '{name}' approach ({len(decoded)} bytes)")
 					decoded_data = decoded
 					saved_successfully = True
-					break  # Exit loop once decoding succeeds
+					break 
 					
 				except Exception as e:
 					print(f"✗ Failed {name} approach: {e}")
