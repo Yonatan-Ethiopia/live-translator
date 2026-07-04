@@ -5,6 +5,7 @@ import threading
 import queue
 import numpy as np
 import os
+from dotenv import load_env
 import soundfile as sf
 import requests
 import json
@@ -18,7 +19,7 @@ import torch
 from silero_vad import load_silero_vad, VADIterator
 
 STOP_SIGNAL = object()
-
+google_api = os.getenv("google_api")
 raw_text = []
 
 SAMPLE_RATE = 16000
@@ -280,8 +281,8 @@ def full_pipeline(job_id, url, job_folder):
                     ind
                 )
                 sub_index += 1
-    
-                q_text.put((translated_text, vad_start, vad_end))
+                if translated_text is not None:
+                    q_text.put((translated_text, vad_start, vad_end))
     
             except queue.Empty:
                 if not running_event.is_set() and q.empty():
